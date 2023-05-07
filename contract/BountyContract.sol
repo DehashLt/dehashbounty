@@ -23,6 +23,7 @@ contract DehashBountyContract {
     }
     mapping(uint256 => BountyStruct) public bountyList;
     uint256 nextSubmitId = 0;
+    uint256 percentage = 97;
 
     
 
@@ -59,29 +60,56 @@ contract DehashBountyContract {
     // Take Bounty
     function takeHashBounty(uint256 id, bytes calldata preHash) public returns(bool ret) {
         address payable bountyReceiver = payable(bountyList[id].bountyLockedBy);
+        uint256 bountyToTransfer = bountyList[id].bountyStaked * percentage / 100;
 
-        if(bountyList[nextSubmitId].solved){
+        if(bountyList[id].solved){
+            return false;
+        }
+
+        if(bountyList[id].lockedUntilBlock < block.number){
             return false;
         }
 
 
-        
+        if(checkHash(id, preHash)){
+            bountyList[id].preHash = preHash;
+            bountyList[id].bountyStaked = 0;
+            bountyList[id].solved = true;
 
-        if(bountyList[id].hashcatID == 100){
-            if( keccak256(abi.encodePacked(bountyList[id].hashString)) ==
-                keccak256(bytes(iToHex(bytes.concat(SHA1.sha1(preHash)))))
-            ){
-                bountyList[id].preHash = preHash;
-                bountyList[id].bountyStaked = 0;
-                bountyReceiver.transfer( bountyList[id].bountyStaked );
-            }
+
+            bountyReceiver.transfer( bountyToTransfer );
+            return true;
         }
+        return false;
     }
 
 
 
+    // Check Bounty
+    function checkHash(uint256 id, bytes memory preHash) public view returns(bool) {
+        if(bountyList[id].hashcatID == 100){
+            if  ( keccak256(abi.encodePacked(bountyList[id].hashString)) == 
+                    keccak256(bytes(iToHex(bytes.concat(SHA1.sha1(preHash)))))
+                ){
+                return true;
+            }
+        }
+        return false;
+    }
 
 
+
+    function getAllBounties() public view returns (BountyStruct[] memory){
+        BountyStruct[] memory id = new BountyStruct[](nextSubmitId);
+        for (uint i = 0; i < nextSubmitId; i++) {
+            BountyStruct storage singleBounty = bountyList[i];
+            id[i] = singleBounty;
+        }
+        return id;
+    }
+
+
+    
     function readString(uint256 id) public view returns(string memory ret) {
         return bountyList[id].hashString;
     }
@@ -92,14 +120,7 @@ contract DehashBountyContract {
     }
 
 
-    function checkHash(uint256 id, bytes memory preHash) public view returns(bool) {
-        if  ( keccak256(abi.encodePacked(bountyList[id].hashString)) == 
-                keccak256(bytes(iToHex(bytes.concat(SHA1.sha1(preHash)))))
-            ){
-            return true;
-        }
-        return false;
-    }
+    
 
 
 
@@ -118,3 +139,4 @@ contract DehashBountyContract {
 
 
 }
+
